@@ -1,21 +1,43 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, useScroll, useSpring, useReducedMotion } from 'framer-motion'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Flower from './Flower'
 import DataViz from './DataViz'
-
-gsap.registerPlugin(ScrollTrigger)
 
 const ease = [0.22, 1, 0.36, 1]
 const NAV = ['home', 'projects', 'about', 'contact']
 const PROJECTS = [
-  { cat: 'Web design', name: 'Project One',   year: '2025' },
-  { cat: 'Branding',   name: 'Project Two',   year: '2025' },
-  { cat: 'App',        name: 'Project Three', year: '2024' },
-  { cat: 'Motion',     name: 'Project Four',  year: '2024' },
+  {
+    cat: 'Agentic AI · RAG',
+    name: 'Agentic RAG Research Assistant',
+    desc: 'An LLM agent that decides when and how to retrieve. It rewrites queries, runs hybrid search with reranking, grades the context, and self-corrects before answering with citations.',
+    tags: ['LangGraph', 'Hybrid search', 'Reranking', 'Vector DB'],
+    href: '#',
+  },
+  {
+    cat: 'Generative AI · NLP',
+    name: 'BPE Tokenizer & Mini Transformer',
+    desc: 'A Byte-Pair Encoding tokenizer and a small decoder-only Transformer, both built from scratch to understand how language models work under the hood.',
+    tags: ['PyTorch', 'BPE', 'Self-attention', 'Next-token prediction'],
+    href: '#',
+  },
+  {
+    cat: 'Agentic AI · MCP',
+    name: 'MCP Data Analyst Agent',
+    desc: 'An agent that uses SQL, pandas and plotting as tools over the Model Context Protocol, turning plain-English questions into queries, charts and insights.',
+    tags: ['MCP', 'Tool use', 'SQL', 'Pandas'],
+    href: '#',
+  },
 ]
-const SKILLS = ['Web design', 'Front-end development', 'Creative coding', 'Motion']
+const KNOWLEDGE = [
+  { g: 'Language models', items: ['Transformers', 'Self-attention', 'Multi-head attention', 'Positional encodings (RoPE, ALiBi)', 'KV cache', 'FlashAttention', 'Mixture of Experts', 'Scaling laws', 'Decoder-only & encoder-decoder'] },
+  { g: 'Tokenization', items: ['BPE', 'Byte-level BPE', 'WordPiece', 'Unigram LM', 'SentencePiece', 'Vocabulary design', 'Special tokens'] },
+  { g: 'Training & adaptation', items: ['Pretraining', 'Fine-tuning (SFT)', 'LoRA / QLoRA', 'PEFT', 'RLHF', 'DPO', 'Distillation', 'Quantization'] },
+  { g: 'Retrieval & RAG', items: ['Embeddings', 'Vector databases', 'FAISS · Chroma · Qdrant · Pinecone', 'HNSW / ANN search', 'Chunking strategies', 'BM25 & hybrid search', 'Reranking', 'Agentic RAG', 'GraphRAG'] },
+  { g: 'Agents & protocols', items: ['Agentic AI', 'Tool use & function calling', 'MCP', 'ReAct', 'Planning & memory', 'Multi-agent systems', 'LangGraph'] },
+  { g: 'Evaluation & safety', items: ['LLM evals', 'RAGAS', 'Hallucination mitigation', 'Guardrails', 'Prompt engineering'] },
+  { g: 'Data science', items: ['Python', 'Pandas · NumPy', 'SQL', 'scikit-learn', 'PyTorch', 'Statistics', 'Feature engineering', 'EDA', 'A/B testing'] },
+  { g: 'Deployment', items: ['FastAPI', 'Docker', 'MLflow', 'vLLM', 'Git & CI/CD'] },
+]
 const SOCIALS = ['Instagram', 'LinkedIn', 'GitHub', 'Behance']
 
 const up = (i = 0) => ({
@@ -55,42 +77,6 @@ function Split({ text, delay = 0 }) {
         </span>
       ))}
     </motion.span>
-  )
-}
-
-/* ---------------- Marquee ---------------- */
-function Marquee() {
-  const ref = useRef()
-  const rm = useReducedMotion()
-
-  useEffect(() => {
-    if (rm) return
-    const tw = gsap.to(ref.current, { xPercent: -50, ease: 'none', duration: 30, repeat: -1 })
-    const st = ScrollTrigger.create({
-      onUpdate: (s) => {
-        const v = Math.min(Math.abs(s.getVelocity()) / 300, 5)
-        gsap.to(tw, { timeScale: (s.direction || 1) * (1 + v), duration: 0.25, overwrite: true })
-        gsap.to(tw, { timeScale: 1, duration: 1.6, delay: 0.35 })
-      },
-    })
-    return () => { tw.kill(); st.kill() }
-  }, [rm])
-
-  const set = (
-    <>
-      <span>After dark</span><i>✳</i>
-      <span>Culture in motion</span><i>✳</i>
-      <span>Design &amp; code</span><i>✳</i>
-    </>
-  )
-
-  return (
-    <div className="marquee" aria-hidden="true">
-      <div className="mq" ref={ref}>
-        <div className="mq-set">{set}</div>
-        <div className="mq-set">{set}</div>
-      </div>
-    </div>
   )
 }
 
@@ -172,29 +158,24 @@ export default function App() {
           <a className="scrollcue" href="#projects">Scroll to projects</a>
         </section>
 
-        <Marquee />
-
         <section id="projects">
           <SectionHead n="01">Projects</SectionHead>
-          <div className="grid">
+          <div className="plist">
             {PROJECTS.map((p, i) => (
-              <motion.a
-                key={p.name}
-                className="card"
-                href="#contact"
-                {...up(i)}
-                whileHover={{ y: -4 }}
-              >
-                <div className="card-top">
+              <motion.a key={p.name} className="proj" href={p.href} {...up(i)}>
+                <span className="p-num">{String(i + 1).padStart(2, '0')}</span>
+
+                <div className="p-head">
                   <small>{p.cat}</small>
-                  <span className="num">{String(i + 1).padStart(2, '0')}</span>
+                  <h3>{p.name}</h3>
                 </div>
-                <h3>{p.name}</h3>
-                <p>Short line about what you built and the result.</p>
-                <div className="card-foot">
-                  <span>{p.year}</span>
-                  <span className="arrow">↗</span>
+
+                <div className="p-body">
+                  <p>{p.desc}</p>
+                  <span className="p-tags">{p.tags.join('  ·  ')}</span>
                 </div>
+
+                <span className="arrow" aria-hidden>↗</span>
               </motion.a>
             ))}
           </div>
@@ -203,27 +184,48 @@ export default function App() {
         <section id="about">
           <SectionHead n="02">About</SectionHead>
           <div className="about">
-            <div>
-              <motion.p {...up(0)}>
-                I'm a designer and developer who builds bold, high-contrast websites.
-                Replace this text with a short story about who you are and what you care about.
+            <motion.figure className="portrait" {...up(0)}>
+              <div className="portrait-frame">
+                <img
+                  src="/sample1.jpeg"
+                  alt="Yash Kuber Khanna"
+                  loading="lazy"
+                  onError={(e) => { e.currentTarget.style.display = 'none' }}
+                />
+              </div>
+              <figcaption>
+                <span>Yash Kuber Khanna</span>
+                <span>Delhi, IN</span>
+              </figcaption>
+            </motion.figure>
+
+            <div className="about-main">
+              <motion.p className="lead" {...up(0)}>
+                I'm a data scientist and ML engineer focused on language models and
+                agentic systems.
               </motion.p>
               <motion.p {...up(1)}>
-                Based in Delhi, available for freelance projects and full-time roles.
+                I like understanding things from the ground up: how a tokenizer splits
+                text, how attention mixes it, how a retriever finds the right context,
+                and how an agent decides which tool to call. Then I build systems that
+                put those pieces to work.
               </motion.p>
               <motion.div className="now" {...up(2)}>
-                <span className="pulse" />Currently available — Q1 2026
+                <span className="pulse" />Open to full-time roles
+              </motion.div>
+
+              <motion.div className="kb" {...up(0)}>
+                <span className="kb-title">Knowledge base</span>
+                {KNOWLEDGE.map((k) => (
+                  <div className="kb-row" key={k.g}>
+                    <span className="kb-g">{k.g}</span>
+                    <ul>
+                      {k.items.map((it) => <li key={it}>{it}</li>)}
+                    </ul>
+                  </div>
+                ))}
               </motion.div>
             </div>
-
-            <ul className="skills">
-              {SKILLS.map((s, i) => (
-                <motion.li key={s} {...up(i)}>
-                  <span className="idx">0{i + 1}</span>
-                  <span>{s}</span>
-                </motion.li>
-              ))}
-            </ul>
           </div>
         </section>
 
