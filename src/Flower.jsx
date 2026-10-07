@@ -19,8 +19,10 @@ function makeLeafGeo() {
   return g
 }
 const leafGeo = makeLeafGeo()
+
 const vs = `varying vec2 vUv;varying vec3 vN;varying vec3 vV;
 void main(){vUv=uv;vN=normalize(normalMatrix*normal);vec4 m=modelViewMatrix*vec4(position,1.);vV=-m.xyz;gl_Position=projectionMatrix*m;}`
+
 const leafMat = new THREE.ShaderMaterial({
   transparent: true, side: THREE.DoubleSide, depthWrite: false,
   uniforms: { uA: { value: IND }, uB: { value: RED }, uT: { value: 0 } },
@@ -41,6 +43,7 @@ void main(){
   #include <colorspace_fragment>
 }`,
 })
+
 const bubMat = (col) => new THREE.ShaderMaterial({
   transparent: true, depthWrite: false, uniforms: { uC: { value: col } }, vertexShader: vs,
   fragmentShader: `uniform vec3 uC;varying vec3 vN;varying vec3 vV;
@@ -49,6 +52,7 @@ void main(){float f=pow(1.-abs(dot(normalize(vN),normalize(vV))),2.5);gl_FragCol
 }`,
 })
 const bubMats = [bubMat(RED), bubMat(IND)]
+
 const glowMat = new THREE.ShaderMaterial({
   transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uC: { value: RED } },
   vertexShader: vs,
@@ -108,49 +112,110 @@ function Scene() {
   const g = useRef(), mouse = useRef({ x: 0, y: 0 }), data = useMemo(build, [])
   const leaves = useRef([]), stamens = useRef(), bubs = useRef([]), pts = useRef()
   const { viewport, gl } = useThree()
+
   useEffect(() => {
     const m = (e) => { mouse.current.x = e.clientX / innerWidth - .5; mouse.current.y = e.clientY / innerHeight - .5 }
     addEventListener('pointermove', m)
     return () => removeEventListener('pointermove', m)
   }, [])
+
   useFrame(({ clock }) => {
     const t = clock.elapsedTime, sy = scrollY, vh = innerHeight
     leafMat.uniforms.uT.value = t
+
     data.stems.forEach((s) => s.geo.setDrawRange(0, Math.floor(s.total * out((t - s.d) / 2.4) / 3) * 3))
-    data.leaves.forEach((l, i) => { const m = leaves.current[i], k = back((t - l.d) / 1.4); m && m.scale.set(l.W * k, l.L * k, l.L * k) })
+    data.leaves.forEach((l, i) => {
+      const m = leaves.current[i]
+      const k = back((t - l.d) / 1.4)
+      m && m.scale.set(l.W * k, l.L * k, l.L * k)
+    })
     stamens.current.scale.setScalar(back((t - 3.4) / 1.2))
+
     bubs.current.forEach((m, i) => {
       const b = data.bubbles[i]
       m.scale.setScalar(Math.max(b.r * back((t - 1.8 - i * .08)), .0001))
-      m.position.set(b.x + Math.cos(t * .4 + i) * .12, b.y + Math.sin(t * .6 + i * 1.7) * .25, b.z)
+      m.position.set(
+        b.x + Math.cos(t * .4 + i) * .12,
+        b.y + Math.sin(t * .6 + i * 1.7) * .25,
+        b.z
+      )
     })
+
     pts.current.rotation.y = t * .03
+
     const wide = viewport.width / viewport.height > 1.1, o = g.current
-    o.position.x += ((wide ? viewport.width * .2 : 0) - o.position.x) * .08
+    o.position.x += ((wide ? viewport.width * .16 : 0) - o.position.x) * .08
     o.position.y += ((-.2 + sy / vh * 3) - o.position.y) * .1
     o.rotation.y += ((mouse.current.x * .6 + sy * .0016) - o.rotation.y) * .05
     o.rotation.x += (mouse.current.y * .2 - o.rotation.x) * .05
     o.rotation.z = Math.sin(t * .5) * .03
-    o.scale.setScalar(Math.min(.82, viewport.height / 7.2) * (wide ? 1 : .85))
-    gl.domElement.style.opacity = Math.max(.18, 1 - sy / vh * .85)
+    o.scale.setScalar(Math.min(.68, viewport.height / 8.6) * (wide ? 1 : .82))
+
+    const fade = 1 - Math.min(sy / (vh * 1.15), 1)
+    gl.domElement.style.opacity = 0.25 + fade * 0.75
   })
+
   return (
     <group ref={g}>
-      <mesh position={[data.bloom.x, data.bloom.y, -.5]} scale={7} material={glowMat}><planeGeometry /></mesh>
-      {data.stems.map((s, i) => <mesh key={i} geometry={s.geo}><meshBasicMaterial color="#4E50DE" /></mesh>)}
-      {data.leaves.map((l, i) => <mesh key={i} ref={(el) => (leaves.current[i] = el)} geometry={leafGeo} material={leafMat} position={l.p} quaternion={l.q} scale={0} />)}
+      <mesh position={[data.bloom.x, data.bloom.y, -.5]} scale={7} material={glowMat}>
+        <planeGeometry />
+      </mesh>
+
+      {data.stems.map((s, i) => (
+        <mesh key={i} geometry={s.geo}>
+          <meshBasicMaterial color="#4E50DE" />
+        </mesh>
+      ))}
+
+      {data.leaves.map((l, i) => (
+        <mesh
+          key={i}
+          ref={(el) => (leaves.current[i] = el)}
+          geometry={leafGeo}
+          material={leafMat}
+          position={l.p}
+          quaternion={l.q}
+          scale={0}
+        />
+      ))}
+
       <group ref={stamens} position={data.bloom}>
         {data.stamens.map((s, i) => (
           <group key={i}>
-            <mesh geometry={s.geo}><meshBasicMaterial color="#F32E35" /></mesh>
-            <mesh position={s.tip}><sphereGeometry args={[.06, 12, 12]} /><meshBasicMaterial color="#F32E35" /></mesh>
+            <mesh geometry={s.geo}>
+              <meshBasicMaterial color="#F32E35" />
+            </mesh>
+            <mesh position={s.tip}>
+              <sphereGeometry args={[.06, 12, 12]} />
+              <meshBasicMaterial color="#F32E35" />
+            </mesh>
           </group>
         ))}
       </group>
-      {data.bubbles.map((b, i) => <mesh key={i} ref={(el) => (bubs.current[i] = el)} material={bubMats[b.m]} scale={0}><sphereGeometry args={[1, 24, 24]} /></mesh>)}
+
+      {data.bubbles.map((b, i) => (
+        <mesh
+          key={i}
+          ref={(el) => (bubs.current[i] = el)}
+          material={bubMats[b.m]}
+          scale={0}
+        >
+          <sphereGeometry args={[1, 24, 24]} />
+        </mesh>
+      ))}
+
       <points ref={pts}>
-        <bufferGeometry><bufferAttribute attach="attributes-position" args={[data.spores, 3]} /></bufferGeometry>
-        <pointsMaterial size={.05} color="#F32E35" transparent opacity={.7} sizeAttenuation depthWrite={false} />
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[data.spores, 3]} />
+        </bufferGeometry>
+        <pointsMaterial
+          size={.05}
+          color="#F32E35"
+          transparent
+          opacity={.7}
+          sizeAttenuation
+          depthWrite={false}
+        />
       </points>
     </group>
   )
@@ -159,7 +224,11 @@ function Scene() {
 export default function Flower() {
   return (
     <div className="cv" aria-hidden="true">
-      <Canvas camera={{ position: [0, 0, 9], fov: 38 }} dpr={[1, 2]} gl={{ alpha: true, antialias: true }}>
+      <Canvas
+        camera={{ position: [0, 0, 9], fov: 38 }}
+        dpr={[1, 2]}
+        gl={{ alpha: true, antialias: true }}
+      >
         <Scene />
       </Canvas>
     </div>

@@ -3,24 +3,52 @@ import { motion, useScroll, useSpring, useReducedMotion } from 'framer-motion'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Flower from './Flower'
+
 gsap.registerPlugin(ScrollTrigger)
 
-const ease = [0.2, 0.7, 0.1, 1]
+const ease = [0.22, 1, 0.36, 1]
 const NAV = ['home', 'projects', 'about', 'contact']
 const PROJECTS = [
-  ['Web design', 'Project One'], ['Branding', 'Project Two'], ['App', 'Project Three'], ['Motion', 'Project Four'],
+  { cat: 'Web design', name: 'Project One',   year: '2025' },
+  { cat: 'Branding',   name: 'Project Two',   year: '2025' },
+  { cat: 'App',        name: 'Project Three', year: '2024' },
+  { cat: 'Motion',     name: 'Project Four',  year: '2024' },
 ]
+const SKILLS = ['Web design', 'Front-end development', 'Creative coding', 'Motion']
+const SOCIALS = ['Instagram', 'LinkedIn', 'GitHub', 'Behance']
 
+const up = (i = 0) => ({
+  initial: { opacity: 0, y: 24 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: '-10%' },
+  transition: { duration: 0.7, delay: i * 0.07, ease },
+})
+
+/* ---------------- Split text ---------------- */
 function Split({ text, delay = 0 }) {
   const rm = useReducedMotion()
   return (
-    <motion.span aria-label={text} initial={rm ? 'v' : 'h'} whileInView="v" viewport={{ once: true, margin: '-8% 0px' }}
-      transition={{ staggerChildren: 0.035, delayChildren: delay }} style={{ display: 'inline-block' }}>
+    <motion.span
+      aria-label={text}
+      initial={rm ? 'v' : 'h'}
+      whileInView="v"
+      viewport={{ once: true, margin: '-8% 0px' }}
+      transition={{ staggerChildren: 0.03, delayChildren: delay }}
+      style={{ display: 'inline-block' }}
+    >
       {text.split(' ').map((w, wi) => (
         <span className="w" aria-hidden key={wi}>
           {[...w].map((c, i) => (
             <span className="m" key={i}>
-              <motion.span className="c" variants={{ h: { y: '115%' }, v: { y: 0, transition: { duration: 0.9, ease } } }}>{c}</motion.span>
+              <motion.span
+                className="c"
+                variants={{
+                  h: { y: '115%' },
+                  v: { y: 0, transition: { duration: 0.85, ease } },
+                }}
+              >
+                {c}
+              </motion.span>
             </span>
           ))}
         </span>
@@ -29,93 +57,186 @@ function Split({ text, delay = 0 }) {
   )
 }
 
+/* ---------------- Marquee ---------------- */
 function Marquee() {
   const ref = useRef()
+  const rm = useReducedMotion()
+
   useEffect(() => {
-    const tw = gsap.to(ref.current, { xPercent: -50, ease: 'none', duration: 26, repeat: -1 })
+    if (rm) return
+    const tw = gsap.to(ref.current, { xPercent: -50, ease: 'none', duration: 30, repeat: -1 })
     const st = ScrollTrigger.create({
       onUpdate: (s) => {
-        const v = Math.min(Math.abs(s.getVelocity()) / 250, 8)
-        gsap.to(tw, { timeScale: (s.direction || 1) * (1 + v), duration: 0.2, overwrite: true })
-        gsap.to(tw, { timeScale: 1, duration: 1.4, delay: 0.3 })
+        const v = Math.min(Math.abs(s.getVelocity()) / 300, 5)
+        gsap.to(tw, { timeScale: (s.direction || 1) * (1 + v), duration: 0.25, overwrite: true })
+        gsap.to(tw, { timeScale: 1, duration: 1.6, delay: 0.35 })
       },
     })
     return () => { tw.kill(); st.kill() }
-  }, [])
-  const t = 'AFTER DARK / CULTURE IN MOTION / '
-  return <div className="marquee" aria-hidden="true"><div className="mq" ref={ref}>{[0, 1, 2, 3].map((i) => <span key={i}>{t}</span>)}</div></div>
+  }, [rm])
+
+  const set = (
+    <>
+      <span>After dark</span><i>✳</i>
+      <span>Culture in motion</span><i>✳</i>
+      <span>Design &amp; code</span><i>✳</i>
+      <span>Portfolio 2026</span><i>✳</i>
+    </>
+  )
+
+  return (
+    <div className="marquee" aria-hidden="true">
+      <div className="mq" ref={ref}>
+        <div className="mq-set">{set}</div>
+        <div className="mq-set">{set}</div>
+      </div>
+    </div>
+  )
 }
 
+/* ---------------- Section head ---------------- */
+function SectionHead({ n, children }) {
+  return (
+    <div className="shead">
+      <span className="snum">/ {n}</span>
+      <h2><Split text={children} /></h2>
+    </div>
+  )
+}
+
+/* ---------------- App ---------------- */
 export default function App() {
   const [active, setActive] = useState('home')
   const { scrollYProgress } = useScroll()
-  const bar = useSpring(scrollYProgress, { stiffness: 120, damping: 24 })
+  const bar = useSpring(scrollYProgress, { stiffness: 120, damping: 26, mass: 0.4 })
+
   useEffect(() => {
-    const io = new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && setActive(e.target.id)), { rootMargin: '-45% 0px -50% 0px' })
-    NAV.forEach((id) => io.observe(document.getElementById(id)))
+    const io = new IntersectionObserver(
+      (es) => es.forEach((e) => e.isIntersecting && setActive(e.target.id)),
+      { rootMargin: '-45% 0px -50% 0px' }
+    )
+    NAV.forEach((id) => {
+      const el = document.getElementById(id)
+      if (el) io.observe(el)
+    })
     return () => io.disconnect()
   }, [])
-  const up = (i = 0) => ({ initial: { opacity: 0, y: 40 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: '-10%' }, transition: { duration: 0.8, delay: i * 0.1, ease } })
 
   return (
     <>
-      <svg width="0" height="0" style={{ position: 'absolute' }}><filter id="rough"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" result="n" /><feDisplacementMap in="SourceGraphic" in2="n" scale="3" /></filter></svg>
       <motion.div className="bar" style={{ scaleX: bar }} />
       <Flower />
+
       <header>
-        <a className="logo" href="#home">YOUR NAME</a>
+        <a className="logo" href="#home">Your Name</a>
         <nav>
           {NAV.map((id) => (
             <a key={id} href={'#' + id} className={active === id ? 'on' : ''}>
-              {id}{active === id && <motion.span layoutId="ul" className="ul" />}
+              {id}
+              {active === id && <motion.span layoutId="ul" className="ul" />}
             </a>
           ))}
         </nav>
       </header>
 
-      <section id="home">
-        <h1 aria-label="Your Name"><Split text="YOUR" delay={0.2} /><br /><Split text="NAME" delay={0.5} /></h1>
-        <p className="tag"><Split text="Design & code / made after dark" delay={0.9} /></p>
-        <motion.p className="meta" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.6, duration: 0.9 }}>
-          Portfolio 2026. Websites, brands and interfaces with a strong point of view.
-        </motion.p>
-        <a className="scrollcue" href="#projects">Scroll to projects</a>
-      </section>
+      <main>
+        <section id="home">
+          <motion.div className="eyebrow" {...up(0)}>
+            <span>Portfolio</span><span className="sep">/</span><span>2026</span>
+          </motion.div>
 
-      <Marquee />
+          <h1 aria-label="Your Name">
+            <Split text="YOUR" delay={0.2} /><br />
+            <Split text="NAME" delay={0.45} />
+          </h1>
 
-      <section id="projects">
-        <h2><Split text="PROJECTS" /></h2>
-        <div className="grid">
-          {PROJECTS.map(([cat, name], i) => (
-            <motion.a key={name} className="card" href="#contact" {...up(i)} whileHover={{ y: -6 }}>
-              <small>{cat}</small><h3>{name}</h3><p>Short line about what you built and the result.</p>
-            </motion.a>
-          ))}
-        </div>
-      </section>
+          <p className="tag">
+            <Split text="Design & code / made after dark" delay={0.75} />
+          </p>
 
-      <section id="about">
-        <h2><Split text="ABOUT" /></h2>
-        <div className="about">
-          <div>
-            <motion.p {...up(0)}>I'm a designer and developer who builds bold, high-contrast websites. Replace this text with a short story about who you are and what you care about.</motion.p>
-            <motion.p {...up(1)}>Based in Delhi, available for freelance projects and full-time roles.</motion.p>
+          <motion.p className="meta" {...up(3)}>
+            Websites, brands and interfaces with a strong point of view.
+            Based in Delhi, working worldwide.
+          </motion.p>
+
+          <a className="scrollcue" href="#projects">Scroll to projects</a>
+        </section>
+
+        <Marquee />
+
+        <section id="projects">
+          <SectionHead n="01">Projects</SectionHead>
+          <div className="grid">
+            {PROJECTS.map((p, i) => (
+              <motion.a
+                key={p.name}
+                className="card"
+                href="#contact"
+                {...up(i)}
+                whileHover={{ y: -4 }}
+              >
+                <div className="card-top">
+                  <small>{p.cat}</small>
+                  <span className="num">{String(i + 1).padStart(2, '0')}</span>
+                </div>
+                <h3>{p.name}</h3>
+                <p>Short line about what you built and the result.</p>
+                <div className="card-foot">
+                  <span>{p.year}</span>
+                  <span className="arrow">↗</span>
+                </div>
+              </motion.a>
+            ))}
           </div>
-          <ul className="skills">
-            {['Web design', 'Front-end development', 'Creative coding', 'Motion'].map((s, i) => <motion.li key={s} {...up(i)}>{s}</motion.li>)}
-          </ul>
-        </div>
-      </section>
+        </section>
 
-      <section id="contact">
-        <h2><Split text="CONTACT" /></h2>
-        <motion.a className="big" href="mailto:you@example.com" {...up(0)}>you@example.com</motion.a>
-        <div className="links">
-          {['Instagram', 'LinkedIn', 'GitHub', 'Behance'].map((l, i) => <motion.a key={l} href="#" {...up(i + 1)}>{l}</motion.a>)}
-        </div>
-      </section>
-      <footer>© 2026 Your Name</footer>
+        <section id="about">
+          <SectionHead n="02">About</SectionHead>
+          <div className="about">
+            <div>
+              <motion.p {...up(0)}>
+                I'm a designer and developer who builds bold, high-contrast websites.
+                Replace this text with a short story about who you are and what you care about.
+              </motion.p>
+              <motion.p {...up(1)}>
+                Based in Delhi, available for freelance projects and full-time roles.
+              </motion.p>
+              <motion.div className="now" {...up(2)}>
+                <span className="pulse" />Currently available — Q1 2026
+              </motion.div>
+            </div>
+
+            <ul className="skills">
+              {SKILLS.map((s, i) => (
+                <motion.li key={s} {...up(i)}>
+                  <span className="idx">0{i + 1}</span>
+                  <span>{s}</span>
+                </motion.li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section id="contact">
+          <SectionHead n="03">Contact</SectionHead>
+          <motion.a className="big" href="mailto:you@example.com" {...up(0)}>
+            you@example.com
+          </motion.a>
+          <div className="links">
+            {SOCIALS.map((l, i) => (
+              <motion.a key={l} href="#" {...up(i + 1)}>
+                {l}<span className="arrow">↗</span>
+              </motion.a>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <span>© {new Date().getFullYear()} Your Name</span>
+        <span>React · Three.js · Framer Motion</span>
+        <a href="#home">Back to top ↑</a>
+      </footer>
     </>
   )
 }
