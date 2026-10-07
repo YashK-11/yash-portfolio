@@ -145,24 +145,29 @@ export default function App() {
 
       <main>
         <section id="home">
-          <DataViz />
-          <motion.div className="eyebrow" {...up(0)}>
-            <span>Hello</span><span className="sep">/</span><span>I am </span>
-          </motion.div>
+          <div className="hero">
+            <DataViz />
 
-          <h2 aria-label="Yash Kuber Khanna">
-            <Split text="Yash Kuber" delay={0.2} /><br />
-            <Split text="Khanna" delay={0.45} />
-          </h2>
+            <div className="hero-text">
+              <motion.div className="eyebrow" {...up(0)}>
+                <span>Hello</span><span className="sep">/</span><span>I am </span>
+              </motion.div>
 
-          <p className="tag">
-            <Split text="Data Scientist & Developer" delay={0.4} />
-          </p>
+              <h2 aria-label="Yash Kuber Khanna">
+                <Split text="Yash Kuber" delay={0.2} /><br />
+                <Split text="Khanna" delay={0.45} />
+              </h2>
 
-          <motion.p className="meta" {...up(3)}>
-            Websites, brands and interfaces with a strong point of view.
-            Based in Delhi, working worldwide.
-          </motion.p>
+              <p className="tag">
+                <Split text="Data Scientist & ML Engineer" delay={0.4} />
+              </p>
+
+              <motion.p className="meta" {...up(3)}>
+                Websites, brands and interfaces with a strong point of view.
+                Based in Delhi, working worldwide.
+              </motion.p>
+            </div>
+          </div>
 
           <a className="scrollcue" href="#projects">Scroll to projects</a>
         </section>
