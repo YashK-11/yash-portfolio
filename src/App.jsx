@@ -80,7 +80,6 @@ function Marquee() {
       <span>After dark</span><i>✳</i>
       <span>Culture in motion</span><i>✳</i>
       <span>Design &amp; code</span><i>✳</i>
-      <span>Portfolio 2026</span><i>✳</i>
     </>
   )
 
@@ -128,7 +127,7 @@ export default function App() {
       <Flower />
 
       <header>
-        <a className="logo" href="#home">Your Name</a>
+        <a className="logo" href="#home">home</a>
         <nav>
           {NAV.map((id) => (
             <a key={id} href={'#' + id} className={active === id ? 'on' : ''}>
@@ -142,16 +141,16 @@ export default function App() {
       <main>
         <section id="home">
           <motion.div className="eyebrow" {...up(0)}>
-            <span>Portfolio</span><span className="sep">/</span><span>2026</span>
+            <span>Hello</span><span className="sep">/</span><span>I am </span>
           </motion.div>
 
-          <h1 aria-label="Your Name">
-            <Split text="YOUR" delay={0.2} /><br />
-            <Split text="NAME" delay={0.45} />
-          </h1>
+          <h2 aria-label="Yash Kuber Khanna">
+            <Split text="Yash Kuber" delay={0.2} /><br />
+            <Split text="Khanna" delay={0.45} />
+          </h2>
 
           <p className="tag">
-            <Split text="Design & code / made after dark" delay={0.75} />
+            <Split text="Data Scientist & Developer" delay={0.4} />
           </p>
 
           <motion.p className="meta" {...up(3)}>

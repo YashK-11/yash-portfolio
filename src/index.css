@@ -109,11 +109,10 @@ h1{
 .tag{
   font-family:var(--display);
   color:var(--red);
-  font-size:clamp(16px,2.4vw,30px);
+  font-size:clamp(12px,2.4vw,30px);
   line-height:1.1;
-  text-transform:uppercase;
   max-width:18ch;
-  margin-top:clamp(16px,2.6vh,28px);
+  margin-top:clamp(12px,2.6vh,28px);
 }
 .meta{
   margin-top:clamp(16px,2.6vh,26px);
