@@ -41,13 +41,6 @@ body::before{
   background-size:200px 200px;
 }
 
-/* ---------- flower canvas (background layer) ---------- */
-.cv{
-  position:fixed;inset:0;z-index:0;
-  pointer-events:none;
-  opacity:.5;
-}
-
 header,section,.marquee,footer{position:relative;z-index:2}
 
 /* ---------- scroll progress ---------- */
@@ -126,6 +119,7 @@ h1{
   display:inline-flex;align-items:center;gap:12px;
   font-size:10px;letter-spacing:.18em;text-transform:uppercase;
   color:var(--indigo);
+  z-index:1;
   transition:color .25s var(--ease);
 }
 .scrollcue:hover{color:var(--red)}
@@ -270,7 +264,7 @@ h1 .w{margin-right:0}
 /* ---------- responsive / reduced motion ---------- */
 @media (max-width:860px){
   .about{grid-template-columns:1fr}
-  .cv{opacity:.32}
+  .dv{opacity:.5}
 }
 @media (max-width:600px){
   header{padding:16px var(--pad) 24px}
@@ -279,4 +273,50 @@ h1 .w{margin-right:0}
 }
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
+}
+
+/* ---------- navbar flower button ---------- */
+nav{align-items:center}
+.flower-btn{
+  font:inherit;font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--red);background:transparent;
+  border:1px solid rgba(243,46,53,.5);
+  padding:4px 11px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:background .25s var(--ease),color .25s var(--ease),border-color .25s var(--ease);
+}
+.flower-btn:hover{background:var(--red);color:var(--black);border-color:var(--red)}
+@media (max-width:600px){.flower-btn{font-size:9px;letter-spacing:.1em;padding:3px 8px}}
+
+/* ---------- flower modal ---------- */
+.fl{
+  position:fixed;inset:0;z-index:90;
+  background:rgba(8,7,11,.95);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  cursor:pointer;
+}
+.fl-cv{position:absolute;inset:0}
+.fl-close{
+  position:absolute;top:20px;right:var(--pad);
+  font:inherit;font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink);background:transparent;border:1px solid var(--line);
+  padding:8px 14px;cursor:pointer;display:inline-flex;gap:10px;align-items:center;
+  transition:color .25s var(--ease),border-color .25s var(--ease);
+}
+.fl-close span{color:var(--muted)}
+.fl-close:hover{color:var(--red);border-color:var(--red)}
+.fl-hint{
+  position:absolute;left:0;right:0;bottom:28px;text-align:center;pointer-events:none;
+  font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);
+}
+
+/* ---------- home data-science visual ---------- */
+.dv{position:absolute;inset:0;z-index:0;pointer-events:none}
+#home>.eyebrow,#home>h2,#home>.tag,#home>.meta{position:relative;z-index:1}
+/* desktop: viz on the left, hero text flips to the right so nothing covers it */
+@media (min-width:861px){
+  #home{align-items:flex-end;text-align:right}
+  #home .eyebrow{justify-content:flex-end}
+  #home .tag,#home .meta{margin-left:auto}
+  #home .scrollcue{left:auto;right:var(--pad)}
 }

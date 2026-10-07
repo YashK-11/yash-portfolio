@@ -1,4 +1,5 @@
 import { useMemo, useRef, useEffect } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 
@@ -111,7 +112,7 @@ function build() {
 function Scene() {
   const g = useRef(), mouse = useRef({ x: 0, y: 0 }), data = useMemo(build, [])
   const leaves = useRef([]), stamens = useRef(), bubs = useRef([]), pts = useRef()
-  const { viewport, gl } = useThree()
+  const { viewport } = useThree()
 
   useEffect(() => {
     const m = (e) => { mouse.current.x = e.clientX / innerWidth - .5; mouse.current.y = e.clientY / innerHeight - .5 }
@@ -120,7 +121,7 @@ function Scene() {
   }, [])
 
   useFrame(({ clock }) => {
-    const t = clock.elapsedTime, sy = scrollY, vh = innerHeight
+    const t = clock.elapsedTime
     leafMat.uniforms.uT.value = t
 
     data.stems.forEach((s) => s.geo.setDrawRange(0, Math.floor(s.total * out((t - s.d) / 2.4) / 3) * 3))
@@ -143,16 +144,12 @@ function Scene() {
 
     pts.current.rotation.y = t * .03
 
-    const wide = viewport.width / viewport.height > 1.1, o = g.current
-    o.position.x += ((wide ? viewport.width * .16 : 0) - o.position.x) * .08
-    o.position.y += ((-.2 + sy / vh * 3) - o.position.y) * .1
-    o.rotation.y += ((mouse.current.x * .6 + sy * .0016) - o.rotation.y) * .05
-    o.rotation.x += (mouse.current.y * .2 - o.rotation.x) * .05
-    o.rotation.z = Math.sin(t * .5) * .03
-    o.scale.setScalar(Math.min(.68, viewport.height / 8.6) * (wide ? 1 : .82))
-
-    const fade = 1 - Math.min(sy / (vh * 1.15), 1)
-    gl.domElement.style.opacity = 0.25 + fade * 0.75
+    const o = g.current
+    o.position.y = -0.2
+    o.rotation.y += ((mouse.current.x * 0.9 + t * 0.15) - o.rotation.y) * 0.05
+    o.rotation.x += (mouse.current.y * 0.25 - o.rotation.x) * 0.05
+    o.rotation.z = Math.sin(t * 0.5) * 0.03
+    o.scale.setScalar(Math.min(0.56, viewport.height / 11.5, viewport.width / 7.5))
   })
 
   return (
@@ -221,16 +218,45 @@ function Scene() {
   )
 }
 
-export default function Flower() {
+export default function Flower({ open, onClose }) {
+  useEffect(() => {
+    if (!open) return
+    const key = (e) => e.key === 'Escape' && onClose()
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    addEventListener('keydown', key)
+    return () => {
+      document.body.style.overflow = prev
+      removeEventListener('keydown', key)
+    }
+  }, [open, onClose])
+
   return (
-    <div className="cv" aria-hidden="true">
-      <Canvas
-        camera={{ position: [0, 0, 9], fov: 38 }}
-        dpr={[1, 2]}
-        gl={{ alpha: true, antialias: true }}
-      >
-        <Scene />
-      </Canvas>
-    </div>
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fl"
+          role="dialog"
+          aria-modal="true"
+          aria-label="3D flower"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.35 }}
+          onClick={onClose}
+        >
+          {/* Canvas mounts only while open, so the grow-in animation replays every time */}
+          <div className="fl-cv">
+            <Canvas camera={{ position: [0, 0, 9], fov: 38 }} dpr={[1, 2]} gl={{ alpha: true, antialias: true }}>
+              <Scene />
+            </Canvas>
+          </div>
+          <button className="fl-close" onClick={onClose} aria-label="Close flower">
+            Close <span>esc</span>
+          </button>
+          <div className="fl-hint">Move your cursor to turn it</div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

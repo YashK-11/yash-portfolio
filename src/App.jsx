@@ -3,6 +3,7 @@ import { motion, useScroll, useSpring, useReducedMotion } from 'framer-motion'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Flower from './Flower'
+import DataViz from './DataViz'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -106,6 +107,7 @@ function SectionHead({ n, children }) {
 /* ---------------- App ---------------- */
 export default function App() {
   const [active, setActive] = useState('home')
+  const [flowerOpen, setFlowerOpen] = useState(false)
   const { scrollYProgress } = useScroll()
   const bar = useSpring(scrollYProgress, { stiffness: 120, damping: 26, mass: 0.4 })
 
@@ -124,7 +126,7 @@ export default function App() {
   return (
     <>
       <motion.div className="bar" style={{ scaleX: bar }} />
-      <Flower />
+      <Flower open={flowerOpen} onClose={() => setFlowerOpen(false)} />
 
       <header>
         <a className="logo" href="#home">home</a>
@@ -135,11 +137,15 @@ export default function App() {
               {active === id && <motion.span layoutId="ul" className="ul" />}
             </a>
           ))}
+          <button className="flower-btn" onClick={() => setFlowerOpen(true)}>
+            <span aria-hidden>✿</span> flower
+          </button>
         </nav>
       </header>
 
       <main>
         <section id="home">
+          <DataViz />
           <motion.div className="eyebrow" {...up(0)}>
             <span>Hello</span><span className="sep">/</span><span>I am </span>
           </motion.div>
