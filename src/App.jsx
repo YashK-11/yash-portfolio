@@ -78,6 +78,13 @@ const KNOWLEDGE = [
   { g: 'Deployment', items: ['FastAPI', 'Docker', 'MLflow', 'vLLM', 'Git & CI/CD'] },
 ]
 
+const ABOUT_STEPS = [
+  { k: 'Tokenizer', t: 'how a tokenizer splits text' },
+  { k: 'Attention', t: 'how attention mixes it' },
+  { k: 'Retriever', t: 'how a retriever finds the right context' },
+  { k: 'Agent', t: 'how an agent decides which tool to call' },
+]
+
 const CONTACT = [
   { label: 'Email', value: 'you@example.com', href: 'mailto:you@example.com' },
   { label: 'LinkedIn', value: 'linkedin.com/in/your-handle', href: 'https://www.linkedin.com/in/your-handle' },
@@ -332,79 +339,177 @@ function hl(line) {
   return out
 }
 
+/* ---------------- Skills: a book of code ---------------- */
+const FLIP_MS = 0.95
+const flipEase = [0.645, 0.045, 0.355, 1]
+
+function useNarrow(q = '(max-width: 820px)') {
+  const [m, setM] = useState(() => typeof matchMedia !== 'undefined' && matchMedia(q).matches)
+  useEffect(() => {
+    const mq = matchMedia(q)
+    const h = () => setM(mq.matches)
+    h()
+    mq.addEventListener('change', h)
+    return () => mq.removeEventListener('change', h)
+  }, [q])
+  return m
+}
+
+/* left-hand page: what this chapter is about */
+function PageLeft({ ch }) {
+  return (
+    <div className="pg pg--l" style={{ '--accent': ch.accent }}>
+      <span className="pg-ghost" aria-hidden>{ch.no}</span>
+      <span className="pg-kicker">Chapter {ch.no}</span>
+      <h3 className="pg-title">{ch.g}</h3>
+      <p className="pg-sum">{ch.sum}</p>
+      <ul className="pg-topics" aria-label="Topics covered">
+        {ch.items.map((it) => <li key={it}>{it}</li>)}
+      </ul>
+      <span className="pg-num pg-num--l">{Number(ch.no) * 2 - 1}</span>
+    </div>
+  )
+}
+
+/* right-hand page: the code */
+function PageRight({ ch }) {
+  return (
+    <div className="pg pg--r" style={{ '--accent': ch.accent }}>
+      <div className="pg-file">
+        <span className="pg-tab">{ch.file}</span>
+        <span className="pg-lang">python</span>
+      </div>
+      <pre className="code" tabIndex={0} aria-label={'Code example: ' + ch.file}>
+        <code>
+          {ch.code.split('\n').map((line, n) => (
+            <span className="row" key={n}>
+              <i className="ln">{n + 1}</i>
+              {line ? hl(line) : '\u200b'}
+            </span>
+          ))}
+        </code>
+      </pre>
+      <p className="pg-cap">{ch.cap}</p>
+      <span className="pg-num pg-num--r">{Number(ch.no) * 2}</span>
+    </div>
+  )
+}
+
 function Skills() {
+  const rm = useReducedMotion()
+  const narrow = useNarrow()
   const [c, setC] = useState(0)
-  const ch = CHAPTERS[c]
-  const go = (n) => setC(Math.max(0, Math.min(N - 1, n)))
+  const [flip, setFlip] = useState(null) // { dir: 'next' | 'prev', to }
+  const busy = !!flip
+  const flat = rm || narrow // no 3D turn: simple swap
+
+  // what sits on the left / right while a leaf is mid-turn
+  const leftIdx = flip?.dir === 'prev' ? flip.to : c
+  const rightIdx = flip?.dir === 'next' ? flip.to : c
+  const cur = CHAPTERS[c]
+
+  const go = (to) => {
+    if (busy || to === c || to < 0 || to > N - 1) return
+    if (flat) { setC(to); return }
+    setFlip({ dir: to > c ? 'next' : 'prev', to })
+  }
+  const done = () => { setC(flip.to); setFlip(null) }
+
   const onKey = (e) => {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); go(c + 1) }
-    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); go(c - 1) }
+    if (e.key === 'ArrowRight') { e.preventDefault(); go(c + 1) }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); go(c - 1) }
   }
 
+  const leaf = flip && (
+    <motion.div
+      key={flip.dir + flip.to}
+      className={'leaf leaf--' + flip.dir}
+      initial={{ rotateY: 0 }}
+      animate={{ rotateY: flip.dir === 'next' ? -180 : 180 }}
+      transition={{ duration: FLIP_MS, ease: flipEase }}
+      onAnimationComplete={done}
+    >
+      {flip.dir === 'next' ? (
+        <>
+          <div className="face"><PageRight ch={CHAPTERS[c]} /></div>
+          <div className="face face--back"><PageLeft ch={CHAPTERS[flip.to]} /></div>
+        </>
+      ) : (
+        <>
+          <div className="face"><PageLeft ch={CHAPTERS[c]} /></div>
+          <div className="face face--back"><PageRight ch={CHAPTERS[flip.to]} /></div>
+        </>
+      )}
+      <span className="leaf-shade" aria-hidden />
+    </motion.div>
+  )
+
   return (
-    <motion.div className="ide" style={{ '--accent': ch.accent }} onKeyDown={onKey} {...up(0)}>
-      <div className="ide-bar">
-        <span className="ide-dots" aria-hidden><i /><i /><i /></span>
-        <span className="ide-path">~/yash/skills/{ch.file}</span>
-        <span className="ide-hint">↑ ↓ to browse</span>
+    <motion.div
+      className="book"
+      style={{ '--accent': cur.accent }}
+      tabIndex={0}
+      onKeyDown={onKey}
+      aria-roledescription="book"
+      aria-label="Skills book. Use the left and right arrow keys to turn pages."
+      {...up(0)}
+    >
+      <div className="book-cover">
+        <div className="book-spread">
+          {flat ? (
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={c}
+                className="book-flat"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25, ease }}
+              >
+                <PageLeft ch={cur} />
+                <PageRight ch={cur} />
+              </motion.div>
+            </AnimatePresence>
+          ) : (
+            <>
+              <div className="base base--l"><PageLeft ch={CHAPTERS[leftIdx]} /></div>
+              <div className="base base--r"><PageRight ch={CHAPTERS[rightIdx]} /></div>
+              {leaf}
+            </>
+          )}
+          <span className="spine" aria-hidden />
+        </div>
       </div>
 
-      <div className="ide-body">
-        <div className="ide-side" role="tablist" aria-orientation="vertical" aria-label="Skill areas">
+      <div className="book-nav">
+        <button className="bn" onClick={() => go(c - 1)} disabled={busy || c === 0} aria-label="Previous page">
+          <span aria-hidden>←</span> Prev page
+        </button>
+
+        <div className="marks" role="tablist" aria-label="Chapters">
           {CHAPTERS.map((x, n) => (
             <button
               key={x.g}
               role="tab"
               aria-selected={c === n}
+              aria-label={`Chapter ${x.no}: ${x.g}`}
+              title={x.g}
               className={c === n ? 'on' : ''}
               style={{ '--a': x.accent }}
-              onClick={() => setC(n)}
+              onClick={() => go(n)}
             >
-              <span className="ide-n">{x.no}</span>
-              <span className="ide-g">{x.g}</span>
-              <span className="ide-count">{x.items.length}</span>
+              {x.no}
             </button>
           ))}
         </div>
 
-        <div className="ide-main">
-          <div className="ide-file">
-            <span className="ide-tab">{ch.file}</span>
-            <span className="ide-lang">python</span>
-          </div>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={c}
-              className="ide-pane"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.24, ease }}
-            >
-              <p className="ide-sum">{ch.sum}</p>
-              <pre className="code" tabIndex={0} aria-label={'Code example: ' + ch.file}>
-                <code>
-                  {ch.code.split('\n').map((line, n) => (
-                    <span className="row" key={n}>
-                      <i className="ln">{n + 1}</i>
-                      {line ? hl(line) : '\u200b'}
-                    </span>
-                  ))}
-                </code>
-              </pre>
-              <p className="ide-cap">{ch.cap}</p>
-              <ul className="ide-topics" aria-label="Topics covered">
-                {ch.items.map((it) => <li key={it}>{it}</li>)}
-              </ul>
-            </motion.div>
-          </AnimatePresence>
-        </div>
+        <button className="bn bn--next" onClick={() => go(c + 1)} disabled={busy || c === N - 1} aria-label="Next page">
+          Next page <span aria-hidden>→</span>
+        </button>
       </div>
-
-      <div className="ide-status">
-        <span><b>{ch.no}</b> / {String(N).padStart(2, '0')} &nbsp;·&nbsp; {ch.g}</span>
-        <span>{ch.items.length} topics · python</span>
-      </div>
+      <p className="book-hint" aria-live="polite">
+        Chapter {cur.no} of {String(N).padStart(2, '0')} · {cur.g} · use ← → to turn the page
+      </p>
     </motion.div>
   )
 }
@@ -526,7 +631,7 @@ export default function App() {
             <motion.figure className="portrait" {...up(0)}>
               <div className="portrait-frame">
                 <img
-                  src="/sample1.jpeg"
+                  src="/sample1.png"
                   alt="Yash Kuber Khanna"
                   loading="lazy"
                   onError={(e) => { e.currentTarget.style.display = 'none' }}
@@ -542,7 +647,7 @@ export default function App() {
               <motion.p className="lead" {...up(0)}>
                 I'm a data scientist and ML engineer focused on <b>language models</b> and <b>agentic systems</b>.
               </motion.p>
-              <motion.p {...up(1)}>
+              <motion.p className="about-body" {...up(1)}>
                 I like understanding things from the ground up: how a tokenizer splits
                 text, how attention mixes it, how a retriever finds the right context,
                 and how an agent decides which tool to call. Then I build systems that
@@ -553,6 +658,16 @@ export default function App() {
               </motion.div>
             </div>
           </div>
+
+          <ol className="about-steps">
+            {ABOUT_STEPS.map((x, i) => (
+              <motion.li key={x.k} {...up(i)}>
+                <span className="as-n">{String(i + 1).padStart(2, '0')}</span>
+                <span className="as-k">{x.k}</span>
+                <span className="as-t">{x.t}</span>
+              </motion.li>
+            ))}
+          </ol>
 
           <Skills />
         </section>
