@@ -290,7 +290,7 @@ function drawNet(ctx, W, H, t) {
 
   /* ----- loop hairline ----- */
   ctx.fillStyle = `rgba(${COL.indigo},0.55)`
-  ctx.fillRect(0, H - 1, W * (t / LOOP), 1)
+  ctx.fillRect(0, H - 1, W * (t / NET_LEN), 1)
   ctx.globalAlpha = 1
 }
 
@@ -517,7 +517,7 @@ function drawCV(ctx, W, H, s) {
   footer(ctx, W, H, s, capA, CV_STAGE_START, CV_STAGE_NAME, CV_STAGE_TEXT)
 
   ctx.fillStyle = `rgba(${COL.indigo},0.55)`
-  ctx.fillRect(0, H - 1, W * ((NET_LEN + s) / LOOP), 1)
+  ctx.fillRect(0, H - 1, W * (s / CV_LEN), 1)
   ctx.globalAlpha = 1
 }
 
@@ -740,17 +740,18 @@ function drawKM(ctx, W, H, s) {
   footer(ctx, W, H, s, capA, KM_STAGE_START, KM_STAGE_NAME, KM_STAGE_TEXT)
 
   ctx.fillStyle = `rgba(${COL.indigo},0.55)`
-  ctx.fillRect(0, H - 1, W * ((NET_LEN + CV_LEN + s) / LOOP), 1)
+  ctx.fillRect(0, H - 1, W * (s / KM_LEN), 1)
   ctx.globalAlpha = 1
 }
 
-function draw(ctx, W, H, t) {
-  if (t < NET_LEN) drawNet(ctx, W, H, t)
-  else if (t < NET_LEN + CV_LEN) drawCV(ctx, W, H, t - NET_LEN)
-  else drawKM(ctx, W, H, t - NET_LEN - CV_LEN)
-}
+const SCENES = [
+  { len: NET_LEN, name: 'Neural network', run: (c, W, H, t) => drawNet(c, W, H, t) },
+  { len: CV_LEN, name: 'Computer vision', run: (c, W, H, t) => drawCV(c, W, H, t) },
+  { len: KM_LEN, name: 'K-means', run: (c, W, H, t) => drawKM(c, W, H, t) },
+]
+export const SCENE_NAMES = SCENES.map((s) => s.name)
 
-export default function DataViz() {
+export default function DataViz({ scene = 0 }) {
   const wrap = useRef(null)
   const cv = useRef(null)
 
@@ -758,11 +759,12 @@ export default function DataViz() {
     const el = wrap.current
     const canvas = cv.current
     const ctx = canvas.getContext('2d')
+    const sc = SCENES[scene] || SCENES[0]
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches
-    let W = 0, H = 0, t = still ? STILL_T : 0
+    let W = 0, H = 0, t = still ? Math.min(STILL_T, sc.len - 0.1) : 0
     let raf = 0, last = 0, visible = true
 
-    const render = () => draw(ctx, W, H, t)
+    const render = () => { ctx.clearRect(0, 0, W, H); sc.run(ctx, W, H, t) }
     const resize = () => {
       const r = el.getBoundingClientRect()
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
@@ -777,7 +779,7 @@ export default function DataViz() {
       if (!visible) return
       const dt = Math.min((now - last) / 1000, 0.05)
       last = now
-      t = (t + dt) % LOOP
+      t = (t + dt) % sc.len
       render()
       raf = requestAnimationFrame(loop)
     }
@@ -803,7 +805,7 @@ export default function DataViz() {
       ro.disconnect()
       io.disconnect()
     }
-  }, [])
+  }, [scene])
 
   return (
     <div className="dv" ref={wrap} aria-hidden="true">

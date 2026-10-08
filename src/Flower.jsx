@@ -254,7 +254,7 @@ export default function Flower({ open, onClose }) {
           <button className="fl-close" onClick={onClose} aria-label="Close flower">
             Close <span>esc</span>
           </button>
-          <div className="fl-hint">Move your cursor to turn it</div>
+          <div className="fl-hint">a beautiful flower for you</div>
         </motion.div>
       )}
     </AnimatePresence>
