@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { motion, AnimatePresence, useScroll, useSpring, useReducedMotion } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
+import { motion, useInView, useScroll, useSpring, useReducedMotion } from 'framer-motion'
 import Flower from './Flower'
 import DataViz, { SCENE_NAMES } from './DataViz'
 import Aurora from './Aurora'
@@ -69,13 +69,8 @@ const PROJECTS = [
 
 const KNOWLEDGE = [
   { g: 'Language models', items: ['Transformers', 'Self-attention', 'Multi-head attention', 'Positional encodings (RoPE, ALiBi)', 'KV cache', 'FlashAttention', 'Mixture of Experts', 'Scaling laws', 'Decoder-only & encoder-decoder'] },
-  { g: 'Tokenization', items: ['BPE', 'Byte-level BPE', 'WordPiece', 'Unigram LM', 'SentencePiece', 'Vocabulary design', 'Special tokens'] },
-  { g: 'Training & adaptation', items: ['Pretraining', 'Fine-tuning (SFT)', 'LoRA / QLoRA', 'PEFT', 'RLHF', 'DPO', 'Distillation', 'Quantization'] },
   { g: 'Retrieval & RAG', items: ['Embeddings', 'Vector databases', 'FAISS · Chroma · Qdrant · Pinecone', 'HNSW / ANN search', 'Chunking strategies', 'BM25 & hybrid search', 'Reranking', 'Agentic RAG', 'GraphRAG'] },
   { g: 'Agents & protocols', items: ['Agentic AI', 'Tool use & function calling', 'MCP', 'ReAct', 'Planning & memory', 'Multi-agent systems', 'LangGraph'] },
-  { g: 'Evaluation & safety', items: ['LLM evals', 'RAGAS', 'Hallucination mitigation', 'Guardrails', 'Prompt engineering'] },
-  { g: 'Data science', items: ['Python', 'Pandas · NumPy', 'SQL', 'scikit-learn', 'PyTorch', 'Statistics', 'Feature engineering', 'EDA', 'A/B testing'] },
-  { g: 'Deployment', items: ['FastAPI', 'Docker', 'MLflow', 'vLLM', 'Git & CI/CD'] },
 ]
 
 const ABOUT_STEPS = [
@@ -90,6 +85,9 @@ const CONTACT = [
   { label: 'LinkedIn', value: 'linkedin.com/in/your-handle', href: 'https://www.linkedin.com/in/your-handle' },
   { label: 'GitHub', value: 'github.com/YashK-11', href: 'https://github.com/YashK-11' },
 ]
+
+const MAIL = CONTACT[0]
+const ELSEWHERE = CONTACT.slice(1)
 
 const up = (i = 0) => ({
   initial: { opacity: 0, y: 24 },
@@ -165,47 +163,6 @@ def causal_self_attention(x, Wq, Wk, Wv, n_heads):
     return out.transpose(1, 2).reshape(B, T, C)`,
   },
   {
-    sum: 'How text becomes numbers. The core of Byte-Pair Encoding is a small loop: count pairs, merge the most common.',
-    file: 'bpe.py',
-    cap: 'Start from raw bytes and repeatedly merge the most frequent adjacent pair into a new token id.',
-    code: `from collections import Counter
-
-def merge(ids, pair, new_id):
-    out, i = [], 0
-    while i < len(ids):
-        if i < len(ids) - 1 and (ids[i], ids[i + 1]) == pair:
-            out.append(new_id); i += 2
-        else:
-            out.append(ids[i]); i += 1
-    return out
-
-ids = list("low lower lowest".encode("utf-8"))
-merges = {}
-for step in range(10):
-    pair = Counter(zip(ids, ids[1:])).most_common(1)[0][0]
-    merges[pair] = 256 + step
-    ids = merge(ids, pair, 256 + step)`,
-  },
-  {
-    sum: 'Adapting big models cheaply. LoRA freezes the base weights and learns a low-rank update instead.',
-    file: 'lora.py',
-    cap: 'W stays frozen. Only the small matrices A and B train, and B starts at zero so the model begins unchanged.',
-    code: `import torch, torch.nn as nn
-
-class LoRALinear(nn.Module):
-    def __init__(self, base: nn.Linear, r=8, alpha=16):
-        super().__init__()
-        self.base = base
-        self.scale = alpha / r
-        self.A = nn.Parameter(torch.randn(r, base.in_features) * 0.01)
-        self.B = nn.Parameter(torch.zeros(base.out_features, r))
-        base.requires_grad_(False)                 # freeze W
-
-    def forward(self, x):
-        delta = (x @ self.A.T) @ self.B.T          # low-rank update
-        return self.base(x) + delta * self.scale`,
-  },
-  {
     sum: 'Giving a model the right context. Dense and keyword search each miss things, so I fuse them and rerank.',
     file: 'hybrid_search.py',
     cap: 'Reciprocal Rank Fusion merges semantic and BM25 rankings without needing comparable scores.',
@@ -244,67 +201,6 @@ def run_sql(query: str) -> list[dict]:
 if __name__ == "__main__":
     mcp.run()`,
   },
-  {
-    sum: 'Knowing whether it actually works. I score faithfulness and relevance instead of trusting vibes.',
-    file: 'evaluate.py',
-    cap: 'RAGAS checks that answers stay grounded in the retrieved context and that retrieval is precise.',
-    code: `from datasets import Dataset
-from ragas import evaluate
-from ragas.metrics import faithfulness, answer_relevancy, context_precision
-
-ds = Dataset.from_dict({
-    "question":     questions,
-    "answer":       answers,
-    "contexts":     contexts,        # list of retrieved chunks per question
-    "ground_truth": truths,
-})
-
-report = evaluate(
-    ds,
-    metrics=[faithfulness, answer_relevancy, context_precision],
-)
-print(report)                        # one score per metric`,
-  },
-  {
-    sum: 'Turning raw tables into models. A single pipeline keeps preprocessing and training leak-free.',
-    file: 'pipeline.py',
-    cap: 'Scaling and encoding live inside the pipeline, so cross-validation never sees the held-out fold.',
-    code: `from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.model_selection import cross_val_score
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-
-pre = ColumnTransformer([
-    ("num", StandardScaler(), num_cols),
-    ("cat", OneHotEncoder(handle_unknown="ignore"), cat_cols),
-])
-model = Pipeline([("pre", pre), ("clf", GradientBoostingClassifier())])
-
-scores = cross_val_score(model, X, y, cv=5, scoring="roc_auc")
-print(f"AUC {scores.mean():.3f} +/- {scores.std():.3f}")`,
-  },
-  {
-    sum: 'Getting it out of the notebook. A typed API in front of the retriever and the model.',
-    file: 'api.py',
-    cap: 'Pydantic validates the request, FastAPI serves it, and the response carries its sources.',
-    code: `from fastapi import FastAPI
-from pydantic import BaseModel
-
-app = FastAPI()
-
-class Query(BaseModel):
-    text: str
-    top_k: int = 5
-
-@app.post("/ask")
-async def ask(q: Query):
-    docs = retriever.search(q.text, q.top_k)
-    return {
-        "answer": llm.generate(q.text, context=docs),
-        "sources": [d.id for d in docs],
-    }`,
-  },
 ]
 
 const CHAPTERS = KNOWLEDGE.map((k, i) => ({
@@ -339,178 +235,191 @@ function hl(line) {
   return out
 }
 
-/* ---------------- Skills: a book of code ---------------- */
-const FLIP_MS = 0.95
-const flipEase = [0.645, 0.045, 0.355, 1]
+/* ---------------- Skills: a MacBook, VS Code, and the code being typed ---------------- */
+const HOLD_MS = 3200 // how long a finished file stays up before the next one starts
 
-function useNarrow(q = '(max-width: 820px)') {
-  const [m, setM] = useState(() => typeof matchMedia !== 'undefined' && matchMedia(q).matches)
-  useEffect(() => {
-    const mq = matchMedia(q)
-    const h = () => setM(mq.matches)
-    h()
-    mq.addEventListener('change', h)
-    return () => mq.removeEventListener('change', h)
-  }, [q])
-  return m
+const ICONS = {
+  files: <path d="M5 3h7l4 4v10H5zM12 3v4h4" />,
+  search: <><circle cx="9" cy="9" r="4.5" /><path d="M12.5 12.5 17 17" /></>,
+  branch: <><circle cx="6" cy="4.5" r="1.8" /><circle cx="6" cy="15.5" r="1.8" /><circle cx="14" cy="8" r="1.8" /><path d="M6 6.3v7.4M14 9.8c0 3-8 2-8 4" /></>,
+  blocks: <><rect x="3.5" y="3.5" width="5.5" height="5.5" /><rect x="11" y="3.5" width="5.5" height="5.5" /><rect x="3.5" y="11" width="5.5" height="5.5" /><rect x="12" y="12" width="4.5" height="4.5" /></>,
 }
-
-/* left-hand page: what this chapter is about */
-function PageLeft({ ch }) {
-  return (
-    <div className="pg pg--l" style={{ '--accent': ch.accent }}>
-      <span className="pg-ghost" aria-hidden>{ch.no}</span>
-      <span className="pg-kicker">Chapter {ch.no}</span>
-      <h3 className="pg-title">{ch.g}</h3>
-      <p className="pg-sum">{ch.sum}</p>
-      <ul className="pg-topics" aria-label="Topics covered">
-        {ch.items.map((it) => <li key={it}>{it}</li>)}
-      </ul>
-      <span className="pg-num pg-num--l">{Number(ch.no) * 2 - 1}</span>
-    </div>
-  )
-}
-
-/* right-hand page: the code */
-function PageRight({ ch }) {
-  return (
-    <div className="pg pg--r" style={{ '--accent': ch.accent }}>
-      <div className="pg-file">
-        <span className="pg-tab">{ch.file}</span>
-        <span className="pg-lang">python</span>
-      </div>
-      <pre className="code" tabIndex={0} aria-label={'Code example: ' + ch.file}>
-        <code>
-          {ch.code.split('\n').map((line, n) => (
-            <span className="row" key={n}>
-              <i className="ln">{n + 1}</i>
-              {line ? hl(line) : '\u200b'}
-            </span>
-          ))}
-        </code>
-      </pre>
-      <p className="pg-cap">{ch.cap}</p>
-      <span className="pg-num pg-num--r">{Number(ch.no) * 2}</span>
-    </div>
-  )
-}
+const Icon = ({ name }) => (
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden>{ICONS[name]}</svg>
+)
 
 function Skills() {
   const rm = useReducedMotion()
-  const narrow = useNarrow()
+  const root = useRef(null)
+  const seen = useInView(root, { once: true, margin: '-20% 0px' }) // lid opens once
+  const visible = useInView(root, { margin: '-10% 0px' }) // typing pauses off-screen
+  const [lid, setLid] = useState(false)
   const [c, setC] = useState(0)
-  const [flip, setFlip] = useState(null) // { dir: 'next' | 'prev', to }
-  const busy = !!flip
-  const flat = rm || narrow // no 3D turn: simple swap
-
-  // what sits on the left / right while a leaf is mid-turn
-  const leftIdx = flip?.dir === 'prev' ? flip.to : c
-  const rightIdx = flip?.dir === 'next' ? flip.to : c
+  const [manual, setManual] = useState(false)
+  const [typed, setTyped] = useState({ c: 0, n: 0 })
+  const pos = useRef(0)
+  const manualRef = useRef(false)
   const cur = CHAPTERS[c]
+  const text = cur.code
 
-  const go = (to) => {
-    if (busy || to === c || to < 0 || to > N - 1) return
-    if (flat) { setC(to); return }
-    setFlip({ dir: to > c ? 'next' : 'prev', to })
+  // lid opens, then the typing starts
+  useEffect(() => {
+    if (!seen) return
+    const t = setTimeout(() => setLid(true), rm ? 0 : 1500)
+    return () => clearTimeout(t)
+  }, [seen, rm])
+
+  // a new file starts blank
+  useEffect(() => {
+    pos.current = 0
+    setTyped({ c, n: 0 })
+  }, [c])
+
+  // type it out, one character at a time, then move on to the next file
+  const run = lid && visible
+  useEffect(() => {
+    if (!run) return
+    if (rm) { pos.current = text.length; setTyped({ c, n: text.length }); return }
+    let t
+    const step = () => {
+      if (pos.current >= text.length) {
+        if (!manualRef.current) t = setTimeout(() => setC((v) => (v + 1) % N), HOLD_MS)
+        return
+      }
+      pos.current += 1
+      setTyped({ c, n: pos.current })
+      const ch = text[pos.current - 1]
+      const d = ch === '\n' ? 150 : Math.random() < 0.025 ? 180 : 10 + Math.random() * 20
+      t = setTimeout(step, d)
+    }
+    t = setTimeout(step, pos.current === 0 ? 450 : 0)
+    return () => clearTimeout(t)
+  }, [run, c, rm, text])
+
+  const pick = (n) => {
+    manualRef.current = true
+    setManual(true)
+    if (n !== c) setC(n)
   }
-  const done = () => { setC(flip.to); setFlip(null) }
-
   const onKey = (e) => {
-    if (e.key === 'ArrowRight') { e.preventDefault(); go(c + 1) }
-    if (e.key === 'ArrowLeft') { e.preventDefault(); go(c - 1) }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); pick((c + 1) % N) }
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); pick((c + N - 1) % N) }
   }
 
-  const leaf = flip && (
-    <motion.div
-      key={flip.dir + flip.to}
-      className={'leaf leaf--' + flip.dir}
-      initial={{ rotateY: 0 }}
-      animate={{ rotateY: flip.dir === 'next' ? -180 : 180 }}
-      transition={{ duration: FLIP_MS, ease: flipEase }}
-      onAnimationComplete={done}
-    >
-      {flip.dir === 'next' ? (
-        <>
-          <div className="face"><PageRight ch={CHAPTERS[c]} /></div>
-          <div className="face face--back"><PageLeft ch={CHAPTERS[flip.to]} /></div>
-        </>
-      ) : (
-        <>
-          <div className="face"><PageLeft ch={CHAPTERS[c]} /></div>
-          <div className="face face--back"><PageRight ch={CHAPTERS[flip.to]} /></div>
-        </>
-      )}
-      <span className="leaf-shade" aria-hidden />
-    </motion.div>
-  )
+  const shown = rm ? text : typed.c === c ? text.slice(0, typed.n) : ''
+  const lines = shown.split('\n')
+  const done = shown.length >= text.length
+  const ln = lines.length
+  const col = lines[ln - 1].length + 1
 
   return (
-    <motion.div
-      className="book"
-      style={{ '--accent': cur.accent }}
-      tabIndex={0}
-      onKeyDown={onKey}
-      aria-roledescription="book"
-      aria-label="Skills book. Use the left and right arrow keys to turn pages."
-      {...up(0)}
-    >
-      <div className="book-cover">
-        <div className="book-spread">
-          {flat ? (
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={c}
-                className="book-flat"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25, ease }}
+    <div className="sk" ref={root} style={{ '--accent': cur.accent }}>
+      <div className="sk-side">
+        <div className="sk-list" role="tablist" aria-orientation="vertical" aria-label="Skill areas" onKeyDown={onKey}>
+          {CHAPTERS.map((x, n) => {
+            const on = n === c
+            return (
+              <button
+                key={x.g}
+                role="tab"
+                aria-selected={on}
+                tabIndex={on ? 0 : -1}
+                className={'sk-row' + (on ? ' on' : '')}
+                style={{ '--accent': x.accent }}
+                onClick={() => pick(n)}
               >
-                <PageLeft ch={cur} />
-                <PageRight ch={cur} />
-              </motion.div>
-            </AnimatePresence>
-          ) : (
-            <>
-              <div className="base base--l"><PageLeft ch={CHAPTERS[leftIdx]} /></div>
-              <div className="base base--r"><PageRight ch={CHAPTERS[rightIdx]} /></div>
-              {leaf}
-            </>
-          )}
-          <span className="spine" aria-hidden />
-        </div>
-      </div>
-
-      <div className="book-nav">
-        <button className="bn" onClick={() => go(c - 1)} disabled={busy || c === 0} aria-label="Previous page">
-          <span aria-hidden>←</span> Prev page
-        </button>
-
-        <div className="marks" role="tablist" aria-label="Chapters">
-          {CHAPTERS.map((x, n) => (
-            <button
-              key={x.g}
-              role="tab"
-              aria-selected={c === n}
-              aria-label={`Chapter ${x.no}: ${x.g}`}
-              title={x.g}
-              className={c === n ? 'on' : ''}
-              style={{ '--a': x.accent }}
-              onClick={() => go(n)}
-            >
-              {x.no}
-            </button>
-          ))}
+                {on && <motion.span layoutId="sk-rule" className="sk-rule" transition={{ duration: 0.45, ease }} />}
+                <span className="sk-n">{x.no}</span>
+                <span className="sk-t">{x.g}</span>
+              </button>
+            )
+          })}
         </div>
 
-        <button className="bn bn--next" onClick={() => go(c + 1)} disabled={busy || c === N - 1} aria-label="Next page">
-          Next page <span aria-hidden>→</span>
-        </button>
+        <motion.div
+          key={c}
+          className="sk-copy"
+          initial={rm ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, ease }}
+        >
+          <p className="sk-sum">{cur.sum}</p>
+          <p className="sk-cap">{cur.cap}</p>
+          <p className="sk-topics">{cur.items.join('  /  ')}</p>
+        </motion.div>
       </div>
-      <p className="book-hint" aria-live="polite">
-        Chapter {cur.no} of {String(N).padStart(2, '0')} · {cur.g} · use ← → to turn the page
-      </p>
-    </motion.div>
+
+      <div className="mac-stage">
+        <div className="mac">
+          <motion.div
+            className="mac-lid"
+            initial={{ rotateX: rm ? 0 : -86 }}
+            animate={{ rotateX: seen || rm ? 0 : -86 }}
+            transition={{ duration: 1.5, ease }}
+          >
+            <span className="mac-cam" aria-hidden />
+            <div className="vs" aria-hidden>
+              <div className="vs-title">
+                <span className="lights"><i /><i /><i /></span>
+                <span className="vs-name">{cur.file} — skills</span>
+              </div>
+
+              <div className="vs-body">
+                <div className="vs-act">
+                  <Icon name="files" /><Icon name="search" /><Icon name="branch" /><Icon name="blocks" />
+                </div>
+
+                <div className="vs-side">
+                  <p className="vs-h">Explorer</p>
+                  <p className="vs-dir">skills</p>
+                  {CHAPTERS.map((x, n) => (
+                    <button key={x.file} tabIndex={-1} className={'vs-file' + (n === c ? ' on' : '')} onClick={() => pick(n)}>
+                      <b>py</b>{x.file}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="vs-main">
+                  <div className="vs-tabs">
+                    {CHAPTERS.map((x, n) => (
+                      <button
+                        key={x.file}
+                        tabIndex={-1}
+                        className={'vs-tab' + (n === c ? ' on' : '')}
+                        style={{ '--accent': x.accent }}
+                        onClick={() => pick(n)}
+                      >
+                        <b>py</b>{x.file}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="vs-crumb">skills <span>›</span> {cur.file}</div>
+
+                  <div className="vs-code">
+                    {lines.map((line, i) => (
+                      <div className={'vs-row' + (i === ln - 1 ? ' cur' : '')} key={i}>
+                        <i className="vs-ln">{i + 1}</i>
+                        <span className="vs-tx">
+                          {line ? hl(line) : ''}
+                          {i === ln - 1 && lid && <span className={'caret' + (done || !run ? ' idle' : '')} />}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="vs-status">
+                <span>main</span>
+                <span>Ln {ln}, Col {col}&nbsp;&nbsp;&nbsp;Spaces: 4&nbsp;&nbsp;&nbsp;UTF-8&nbsp;&nbsp;&nbsp;Python</span>
+              </div>
+            </div>
+          </motion.div>
+          <div className="mac-base" aria-hidden />
+        </div>
+        <pre className="sr-only" tabIndex={manual ? 0 : -1}>{text}</pre>
+      </div>
+    </div>
   )
 }
 
@@ -519,6 +428,13 @@ export default function App() {
   const [active, setActive] = useState('home')
   const [flowerOpen, setFlowerOpen] = useState(false)
   const [scene, setScene] = useState(0)
+  const [copied, setCopied] = useState(false)
+  const copyMail = () => {
+    navigator.clipboard?.writeText(MAIL.value).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    })
+  }
   const { scrollYProgress } = useScroll()
   const bar = useSpring(scrollYProgress, { stiffness: 120, damping: 26, mass: 0.4 })
 
@@ -549,9 +465,7 @@ export default function App() {
               {active === id && <motion.span layoutId="ul" className="ul" />}
             </a>
           ))}
-          <button className="flower-btn" onClick={() => setFlowerOpen(true)}>
-            <span aria-hidden>✿</span> flower
-          </button>
+          <button className="flower-btn" onClick={() => setFlowerOpen(true)}>flower</button>
         </nav>
       </header>
 
@@ -654,7 +568,7 @@ export default function App() {
                 put those pieces to work.
               </motion.p>
               <motion.div className="now" {...up(2)}>
-                <span className="pulse" />Open to full-time roles
+                Open to full-time roles
               </motion.div>
             </div>
           </div>
@@ -676,25 +590,34 @@ export default function App() {
         <section id="contact">
           <SectionHead n="03">Contact</SectionHead>
 
-          <motion.p className="c-giant" {...up(0)}>
-            Let's talk.
-          </motion.p>
+          <div className="ct">
+            <div className="ct-main">
+              <motion.p className="c-giant" {...up(0)}>Let's talk.</motion.p>
+              <motion.p className="ct-lead" {...up(1)}>
+                Open to full-time roles in data science and ML engineering. Email is the quickest way to reach me.
+              </motion.p>
+              <motion.div className="ct-mailrow" {...up(2)}>
+                <a className="ct-mail" href={MAIL.href}>{MAIL.value}</a>
+                <button className="ct-copy" onClick={copyMail}>{copied ? 'Copied' : 'Copy'}</button>
+              </motion.div>
+            </div>
 
-          <div className="c-grid">
-            {CONTACT.map((c, i) => (
-              <motion.a
-                key={c.label}
-                className="c-card"
-                href={c.href}
-                target={c.href.startsWith('http') ? '_blank' : undefined}
-                rel="noreferrer"
-                {...up(i)}
-              >
-                <span className="c-label">{c.label}</span>
-                <span className="c-value">{c.value}</span>
-                <span className="arrow" aria-hidden>↗</span>
-              </motion.a>
-            ))}
+            <div className="c-grid">
+              {ELSEWHERE.map((c, i) => (
+                <motion.a
+                  key={c.label}
+                  className="c-card"
+                  href={c.href}
+                  target={c.href.startsWith('http') ? '_blank' : undefined}
+                  rel="noreferrer"
+                  {...up(i + 1)}
+                >
+                  <span className="c-label">{c.label}</span>
+                  <span className="c-value">{c.value}</span>
+                  <span className="arrow" aria-hidden>↗</span>
+                </motion.a>
+              ))}
+            </div>
           </div>
         </section>
       </main>
