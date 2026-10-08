@@ -133,59 +133,277 @@ function SectionHead({ n, children }) {
   )
 }
 
-/* ---------------- Skills explorer ---------------- */
+/* ---------------- Skills: a code window ---------------- */
+const ACCENTS = ['243,46,53', '124,155,255', '84,222,150', '176,112,255', '70,202,228', '255,198,72', '243,46,53', '124,155,255']
+
+/* one chapter per skill area: a summary, plus a real code example */
+const CODE = [
+  {
+    sum: 'How modern LLMs work, from attention to scaling. Here is causal multi-head self-attention written out by hand.',
+    file: 'attention.py',
+    cap: 'Queries, keys and values are split into heads, scores are scaled, and a causal mask blocks the future.',
+    code: `import torch
+
+def causal_self_attention(x, Wq, Wk, Wv, n_heads):
+    B, T, C = x.shape
+    hd = C // n_heads
+    q, k, v = (x @ W for W in (Wq, Wk, Wv))
+    q, k, v = (t.view(B, T, n_heads, hd).transpose(1, 2) for t in (q, k, v))
+
+    att = (q @ k.transpose(-2, -1)) / hd ** 0.5       # scaled scores
+    mask = torch.tril(torch.ones(T, T, device=x.device)).bool()
+    att = att.masked_fill(~mask, float("-inf")).softmax(dim=-1)
+
+    out = att @ v                                      # weighted values
+    return out.transpose(1, 2).reshape(B, T, C)`,
+  },
+  {
+    sum: 'How text becomes numbers. The core of Byte-Pair Encoding is a small loop: count pairs, merge the most common.',
+    file: 'bpe.py',
+    cap: 'Start from raw bytes and repeatedly merge the most frequent adjacent pair into a new token id.',
+    code: `from collections import Counter
+
+def merge(ids, pair, new_id):
+    out, i = [], 0
+    while i < len(ids):
+        if i < len(ids) - 1 and (ids[i], ids[i + 1]) == pair:
+            out.append(new_id); i += 2
+        else:
+            out.append(ids[i]); i += 1
+    return out
+
+ids = list("low lower lowest".encode("utf-8"))
+merges = {}
+for step in range(10):
+    pair = Counter(zip(ids, ids[1:])).most_common(1)[0][0]
+    merges[pair] = 256 + step
+    ids = merge(ids, pair, 256 + step)`,
+  },
+  {
+    sum: 'Adapting big models cheaply. LoRA freezes the base weights and learns a low-rank update instead.',
+    file: 'lora.py',
+    cap: 'W stays frozen. Only the small matrices A and B train, and B starts at zero so the model begins unchanged.',
+    code: `import torch, torch.nn as nn
+
+class LoRALinear(nn.Module):
+    def __init__(self, base: nn.Linear, r=8, alpha=16):
+        super().__init__()
+        self.base = base
+        self.scale = alpha / r
+        self.A = nn.Parameter(torch.randn(r, base.in_features) * 0.01)
+        self.B = nn.Parameter(torch.zeros(base.out_features, r))
+        base.requires_grad_(False)                 # freeze W
+
+    def forward(self, x):
+        delta = (x @ self.A.T) @ self.B.T          # low-rank update
+        return self.base(x) + delta * self.scale`,
+  },
+  {
+    sum: 'Giving a model the right context. Dense and keyword search each miss things, so I fuse them and rerank.',
+    file: 'hybrid_search.py',
+    cap: 'Reciprocal Rank Fusion merges semantic and BM25 rankings without needing comparable scores.',
+    code: `def rrf(rankings, k=60):
+    scores = {}
+    for ranking in rankings:
+        for rank, doc_id in enumerate(ranking):
+            scores[doc_id] = scores.get(doc_id, 0) + 1 / (k + rank + 1)
+    return sorted(scores, key=scores.get, reverse=True)
+
+dense_ids  = index.search(embed(query), k=20)    # semantic (HNSW)
+sparse_ids = bm25.top_ids(query, k=20)           # keyword (BM25)
+
+fused = rrf([dense_ids, sparse_ids])[:20]
+top5  = reranker.rank(query, fused)[:5]          # cross-encoder
+answer = llm.generate(query, context=top5)`,
+  },
+  {
+    sum: 'Models that act. An MCP server exposes tools, and any agent can discover and call them.',
+    file: 'server.py',
+    cap: 'A guarded, read-only SQL tool. The agent decides when to call it, the server decides what is allowed.',
+    code: `import sqlite3
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("data-analyst")
+
+@mcp.tool()
+def run_sql(query: str) -> list[dict]:
+    """Run a read-only SQL query and return the rows."""
+    if not query.strip().lower().startswith("select"):
+        raise ValueError("read-only: SELECT statements only")
+    con = sqlite3.connect("sales.db")
+    con.row_factory = sqlite3.Row
+    return [dict(r) for r in con.execute(query).fetchall()]
+
+if __name__ == "__main__":
+    mcp.run()`,
+  },
+  {
+    sum: 'Knowing whether it actually works. I score faithfulness and relevance instead of trusting vibes.',
+    file: 'evaluate.py',
+    cap: 'RAGAS checks that answers stay grounded in the retrieved context and that retrieval is precise.',
+    code: `from datasets import Dataset
+from ragas import evaluate
+from ragas.metrics import faithfulness, answer_relevancy, context_precision
+
+ds = Dataset.from_dict({
+    "question":     questions,
+    "answer":       answers,
+    "contexts":     contexts,        # list of retrieved chunks per question
+    "ground_truth": truths,
+})
+
+report = evaluate(
+    ds,
+    metrics=[faithfulness, answer_relevancy, context_precision],
+)
+print(report)                        # one score per metric`,
+  },
+  {
+    sum: 'Turning raw tables into models. A single pipeline keeps preprocessing and training leak-free.',
+    file: 'pipeline.py',
+    cap: 'Scaling and encoding live inside the pipeline, so cross-validation never sees the held-out fold.',
+    code: `from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.model_selection import cross_val_score
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+pre = ColumnTransformer([
+    ("num", StandardScaler(), num_cols),
+    ("cat", OneHotEncoder(handle_unknown="ignore"), cat_cols),
+])
+model = Pipeline([("pre", pre), ("clf", GradientBoostingClassifier())])
+
+scores = cross_val_score(model, X, y, cv=5, scoring="roc_auc")
+print(f"AUC {scores.mean():.3f} +/- {scores.std():.3f}")`,
+  },
+  {
+    sum: 'Getting it out of the notebook. A typed API in front of the retriever and the model.',
+    file: 'api.py',
+    cap: 'Pydantic validates the request, FastAPI serves it, and the response carries its sources.',
+    code: `from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class Query(BaseModel):
+    text: str
+    top_k: int = 5
+
+@app.post("/ask")
+async def ask(q: Query):
+    docs = retriever.search(q.text, q.top_k)
+    return {
+        "answer": llm.generate(q.text, context=docs),
+        "sources": [d.id for d in docs],
+    }`,
+  },
+]
+
+const CHAPTERS = KNOWLEDGE.map((k, i) => ({
+  ...k,
+  ...CODE[i],
+  accent: ACCENTS[i % ACCENTS.length],
+  no: String(i + 1).padStart(2, '0'),
+}))
+const N = CHAPTERS.length
+
+/* tiny Python highlighter */
+const KW = new Set(['import', 'from', 'def', 'return', 'class', 'for', 'in', 'if', 'else', 'elif', 'while', 'with', 'as', 'raise', 'not', 'and', 'or', 'is', 'lambda', 'async', 'await', 'None', 'True', 'False', 'self'])
+const TOK = /(#.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(\b\d[\d_]*(?:\.\d+)?\b)|(@[\w.]+)|([A-Za-z_]\w*)|(\s+|.)/g
+
+function hl(line) {
+  const out = []
+  let prev = ''
+  for (const m of line.matchAll(TOK)) {
+    const [t, com, str, num, dec, id] = m
+    let cls = null
+    if (com) cls = 'c'
+    else if (str) cls = 's'
+    else if (num) cls = 'n'
+    else if (dec) cls = 'd'
+    else if (id) {
+      if (KW.has(id)) cls = 'k'
+      else if (prev === 'def' || prev === 'class' || line[m.index + t.length] === '(') cls = 'f'
+    }
+    if (t.trim()) prev = t
+    out.push(cls ? <span key={m.index} className={'tk-' + cls}>{t}</span> : t)
+  }
+  return out
+}
+
 function Skills() {
-  const [i, setI] = useState(0)
-  const k = KNOWLEDGE[i]
-  const total = KNOWLEDGE.reduce((a, b) => a + b.items.length, 0)
+  const [c, setC] = useState(0)
+  const ch = CHAPTERS[c]
+  const go = (n) => setC(Math.max(0, Math.min(N - 1, n)))
+  const onKey = (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); go(c + 1) }
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); go(c - 1) }
+  }
+
   return (
-    <motion.div className="sx" {...up(0)}>
-      <div className="sx-list" role="tablist" aria-label="Skill areas">
-        {KNOWLEDGE.map((g, n) => (
-          <button
-            key={g.g}
-            role="tab"
-            aria-selected={i === n}
-            className={i === n ? 'on' : ''}
-            onMouseEnter={() => setI(n)}
-            onFocus={() => setI(n)}
-            onClick={() => setI(n)}
-          >
-            <span className="sx-n">{String(n + 1).padStart(2, '0')}</span>
-            <span className="sx-g">{g.g}</span>
-            <span className="sx-c">{g.items.length}</span>
-          </button>
-        ))}
+    <motion.div className="ide" style={{ '--accent': ch.accent }} onKeyDown={onKey} {...up(0)}>
+      <div className="ide-bar">
+        <span className="ide-dots" aria-hidden><i /><i /><i /></span>
+        <span className="ide-path">~/yash/skills/{ch.file}</span>
+        <span className="ide-hint">↑ ↓ to browse</span>
       </div>
 
-      <div className="sx-panel">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.28, ease }}
-          >
-            <div className="sx-head">
-              <span className="sx-big">{String(k.items.length).padStart(2, '0')}</span>
-              <span className="sx-title">{k.g}</span>
-            </div>
-            <ul className="sx-chips">
-              {k.items.map((it, n) => (
-                <motion.li
-                  key={it}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.05 + n * 0.03, duration: 0.35, ease }}
-                >
-                  {it}
-                </motion.li>
-              ))}
-            </ul>
-          </motion.div>
-        </AnimatePresence>
-        <span className="sx-foot">{KNOWLEDGE.length} areas · {total} topics</span>
+      <div className="ide-body">
+        <div className="ide-side" role="tablist" aria-orientation="vertical" aria-label="Skill areas">
+          {CHAPTERS.map((x, n) => (
+            <button
+              key={x.g}
+              role="tab"
+              aria-selected={c === n}
+              className={c === n ? 'on' : ''}
+              style={{ '--a': x.accent }}
+              onClick={() => setC(n)}
+            >
+              <span className="ide-n">{x.no}</span>
+              <span className="ide-g">{x.g}</span>
+              <span className="ide-count">{x.items.length}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="ide-main">
+          <div className="ide-file">
+            <span className="ide-tab">{ch.file}</span>
+            <span className="ide-lang">python</span>
+          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={c}
+              className="ide-pane"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.24, ease }}
+            >
+              <p className="ide-sum">{ch.sum}</p>
+              <pre className="code" tabIndex={0} aria-label={'Code example: ' + ch.file}>
+                <code>
+                  {ch.code.split('\n').map((line, n) => (
+                    <span className="row" key={n}>
+                      <i className="ln">{n + 1}</i>
+                      {line ? hl(line) : '\u200b'}
+                    </span>
+                  ))}
+                </code>
+              </pre>
+              <p className="ide-cap">{ch.cap}</p>
+              <ul className="ide-topics" aria-label="Topics covered">
+                {ch.items.map((it) => <li key={it}>{it}</li>)}
+              </ul>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+
+      <div className="ide-status">
+        <span><b>{ch.no}</b> / {String(N).padStart(2, '0')} &nbsp;·&nbsp; {ch.g}</span>
+        <span>{ch.items.length} topics · python</span>
       </div>
     </motion.div>
   )
@@ -279,7 +497,7 @@ export default function App() {
           <SectionHead n="01">Projects</SectionHead>
           <div className="pgrid">
             {PROJECTS.map((p, i) => (
-              <motion.a key={p.name} className={'proj proj--' + p.theme} href={p.href} {...up(i)}>
+              <motion.article key={p.name} className={'proj proj--' + p.theme} {...up(i)}>
                 <div className="p-art" aria-hidden>{ART[p.art]}</div>
 
                 <div className="p-top">
@@ -294,9 +512,8 @@ export default function App() {
                     <p>{p.desc}</p>
                     <span className="p-tags">{p.tags.join('  ·  ')}</span>
                   </div>
-                  <span className="go" aria-hidden>↗</span>
                 </div>
-              </motion.a>
+              </motion.article>
             ))}
           </div>
         </section>
@@ -348,11 +565,11 @@ export default function App() {
             Let's talk.
           </motion.p>
 
-          <div className="c-list">
+          <div className="c-grid">
             {CONTACT.map((c, i) => (
               <motion.a
                 key={c.label}
-                className="c-row"
+                className="c-card"
                 href={c.href}
                 target={c.href.startsWith('http') ? '_blank' : undefined}
                 rel="noreferrer"
